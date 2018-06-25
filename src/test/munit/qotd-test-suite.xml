@@ -97,8 +97,8 @@ payload]]></dw:set-payload>
         <flow-ref name="qotd:\setup-qotd-jms-message" doc:name="Flow-ref to qotd:\setup-qotd-jms-message"/>
     </munit:test>
     <munit:test name="new-test-suite-qotd:\decompress-quotesTest" description="Test" >
-        <set-payload value="[{ &quot;compressedQuote&quot; : &quot;Samplequote&quot;, &quot;indexes&quot; : [6] }]" doc:name="Set Payload"/>
-        <dw:transform-message doc:name="Transform Message" metadata:id="36844683-1390-4552-873a-0c94c1bc2b4b">
+        <set-payload value="[{ &quot;compressedQuote&quot; : &quot;Samplequote&quot;, &quot;indexes&quot; : [6] }]" doc:name="Set Sample Quote To Payload"/>
+        <dw:transform-message doc:name="Convert To Java Object" metadata:id="36844683-1390-4552-873a-0c94c1bc2b4b">
             <dw:input-payload doc:sample="translated_quotes_list_example.json" mimeType="application/json"/>
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
