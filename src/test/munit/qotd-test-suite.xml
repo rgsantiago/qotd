@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:mock="http://www.mulesoft.org/schema/mule/mock" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:munit="http://www.mulesoft.org/schema/mule/munit" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:core="http://www.mulesoft.org/schema/mule/core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/mock http://www.mulesoft.org/schema/mule/mock/current/mule-mock.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+    <munit:config name="munit" doc:name="MUnit configuration"/>
+    <spring:beans>
+        <spring:import resource="classpath:qotd.xml"/>
+        <spring:import resource="classpath:qotd-ws-apis.xml"/>
+        <spring:import resource="classpath:qotd-file-access.xml"/>
+        <spring:import resource="classpath:qotd-jms.xml"/>
+        <spring:import resource="classpath:qotd-subscribe-to-topic.xml"/>
+        <spring:import resource="classpath:global.xml"/>
+    </spring:beans>
+    <munit:test name="new-test-suite-qotdTest" description="Test" >
+        <mock:when messageProcessor=".*:.*" doc:name="Mock Writing To File">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Write Payload To QOTD File']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[payload]"/>
+        </mock:when>
+        <mock:when messageProcessor=".*:.*" doc:name="Mock Get Languages Input From File">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Get Languages Input From File']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="[ { &quot;name&quot;:&quot;Tagalog&quot;, &quot;code&quot;:&quot;tl&quot; } ]"/>
+        </mock:when>
+        <mock:when messageProcessor=".*:.*" doc:name="Mock JMS - QOTD">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['JMS - QOTD']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[payload]"/>
+        </mock:when>
+        <flow-ref name="qotd" doc:name="Flow-ref to qotd"/>
+        <munit:assert-on-equals expectedValue="Angiyongorasaylimitado" actualValue="#[flowVars.translatedLanguages[0].compressedQuote.substring(0, 22)]" doc:name="Assert Equals"/>
+    </munit:test>
+    <munit:test name="new-test-suite-qotd:\call-qotd-web-serviceTest" description="Test" >
+        <flow-ref name="qotd:\call-qotd-web-service" doc:name="Flow-ref to qotd:\call-qotd-web-service"/>
+        <dw:transform-message doc:name="Convert Response To Java Object" metadata:id="55cdc246-f3c4-446e-a31e-7ac8b8fb20b7">
+            <dw:input-payload mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <munit:assert-true condition="#[payload.contents.quotes[0].quote != null]" doc:name="Assert True"/>
+    </munit:test>
+    <munit:test name="new-test-suite-qotd:\format-compressed-quotesTest" description="Test" >
+        <set-payload value="[{ &quot;compressedQuote&quot; : &quot;Samplequote&quot;, &quot;indexes&quot; : [1, 2, 3] }]" doc:name="Set Compressed Quote Object"/>
+        <dw:transform-message doc:name="Convert To Java Object" metadata:id="36844683-1390-4552-873a-0c94c1bc2b4b">
+            <dw:input-payload doc:sample="translated_quotes_list_example.json" mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <flow-ref name="qotd:\format-compressed-quotes" doc:name="Flow-ref to qotd:\format-compressed-quotes"/>
+        <munit:assert-on-equals expectedValue="Samplequote" actualValue="#[payload.substring(1, 12)]" doc:name="Assert Equals"/>
+    </munit:test>
+    <munit:test name="new-test-suite-qotd:\write-to-fileTest" description="Test" ignore="true">
+        <flow-ref name="qotd:\write-to-file" doc:name="Flow-ref to qotd:\write-to-file"/>
+    </munit:test>
+    <munit:test name="new-test-suite-qotd:\translate-quoteTest" description="Test" >
+        <mock:when messageProcessor=".*:.*" doc:name="Mock Translator Response">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Translator Web Service']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="{ &quot;code&quot;: 200, &quot;lang&quot;: &quot;tr-de&quot;, &quot;text&quot;: [ &quot;Hallo&quot; ] }"/>
+        </mock:when>
+        <set-variable variableName="originalQuote" value="Your time is limited, so don't waste it living someone else's life. Don't be trapped by dogma - which is living with the results of other people's thinking. Don't let the noise of other's opinions drown out your own inner voice. And most important, have the courage to follow your heart and intuition. They somehow already know what you truly want to become. Everything else is secondary." doc:name="Initialize Original Quote"/>
+        <flow-ref name="qotd:\translate-quote" doc:name="Flow-ref to qotd:\translate-quote"/>
+        <munit:assert-on-equals expectedValue="6" actualValue="#[flowVars.translatedLanguages.size().toString()]" doc:name="Assert Equals"/>
+    </munit:test>
+    <munit:test name="new-test-suite-qotd:\call-translator-web-serviceTest" description="Test" >
+        <set-payload value="{ &quot;name&quot;:&quot;French&quot;, &quot;code&quot;:&quot;en-fr&quot; }" doc:name="Set Language Input"/>
+        <dw:transform-message doc:name="Convert To Java Object" metadata:id="33101f85-e14c-4c5a-91d6-bc6bec0b72be">
+            <dw:input-payload mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <set-variable variableName="originalQuote" value="Your time is limited, so don't waste it living someone else's life. Don't be trapped by dogma - which is living with the results of other people's thinking. Don't let the noise of other's opinions drown out your own inner voice. And most important, have the courage to follow your heart and intuition. They somehow already know what you truly want to become. Everything else is secondary." doc:name="Set Original Quote Variable"/>
+        <flow-ref name="qotd:\call-translator-web-service" doc:name="Flow-ref to qotd:\call-translator-web-service"/>
+        <munit:assert-true condition="#[payload.text[0].substring(0, 5) == &quot;Votre&quot;]" doc:name="Assert True"/>
+    </munit:test>
+    <munit:test name="new-test-suite-qotd:\get-languages-inputTest" description="Test" >
+        <flow-ref name="qotd:\get-languages-input" doc:name="Flow-ref to qotd:\get-languages-input"/>
+        <munit:assert-on-equals expectedValue="#[payload[0].name]" actualValue="French" doc:name="Assert Equals - Get First Language Name"/>
+    </munit:test>
+    <munit:test name="new-test-suite-qotd:\publish-qotd-jms-messageTest" description="Test" ignore="true">
+        <flow-ref name="qotd:\publish-qotd-jms-message" doc:name="Flow-ref to qotd:\publish-qotd-jms-message"/>
+    </munit:test>
+    <munit:test name="new-test-suite-qotd:\setup-qotd-jms-messageTest" description="Test" ignore="true">
+        <flow-ref name="qotd:\setup-qotd-jms-message" doc:name="Flow-ref to qotd:\setup-qotd-jms-message"/>
+    </munit:test>
+    <munit:test name="new-test-suite-qotd:\decompress-quotesTest" description="Test" >
+        <set-payload value="[{ &quot;compressedQuote&quot; : &quot;Samplequote&quot;, &quot;indexes&quot; : [6] }]" doc:name="Set Payload"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="36844683-1390-4552-873a-0c94c1bc2b4b">
+            <dw:input-payload doc:sample="translated_quotes_list_example.json" mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <flow-ref name="qotd:\decompress-quotes" doc:name="Flow-ref to qotd:\decompress-quotes"/>
+        <munit:assert-on-equals expectedValue="Sample quote" actualValue="#[flowVars.decompressedQuotes[0].substring(0, 12)]" doc:name="Assert Equals"/>
+    </munit:test>
+    <munit:test name="new-test-suite-qotd:\subscribe-to-topicTest" description="Test" >
+        <mock:when messageProcessor=".*:.*" doc:name="Mock Log Payload">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Log Payload']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="[{ &quot;compressedQuote&quot; : &quot;Samplequote&quot;, &quot;indexes&quot; : [6] }]"/>
+        </mock:when>
+        <mock:when messageProcessor=".*:.*" doc:name="Mock Writing To File">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Write Payload To QOTD File']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[payload]"/>
+        </mock:when>
+        <flow-ref name="qotd:\subscribe-to-topic" doc:name="Flow-ref to qotd:\subscribe-to-topic"/>
+        <munit:assert-on-equals expectedValue="Sample quote" actualValue="#[flowVars.decompressedQuotes[0].substring(0, 12)]" doc:name="Assert Equals"/>
+    </munit:test>
+    <munit:test name="new-test-suite-qotd:\compress-translator-responseTest" description="Test" >
+        <parse-template location="src/test/resources/translator-response-test.json" doc:name="Get Sample Language Input From File"/>
+        <dw:transform-message doc:name="Convert To Java Object" metadata:id="6c866501-2056-4b24-8bae-76ea6e52e052">
+            <dw:input-payload mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <flow-ref name="qotd:\compress-translator-response" doc:name="Flow-ref to qotd:\compress-translator-response"/>
+        <munit:assert-true condition="#[payload.compressedQuote.substring(0, 10) == 'Votretemps' &amp;&amp; payload.indexes.size() &gt; 0]" doc:name="Assert True"/>
+    </munit:test>
+</mule>

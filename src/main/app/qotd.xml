@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <file:connector name="QOTD_File"  writeToDirectory="/Users/wslemployee/" autoDelete="true" streaming="true" validateConnections="true" doc:name="File" moveToDirectory="~/"  readFromDirectory="/Users/wslemployee" workDirectory="/Users/wslemployee" outputAppend="true"/>
+    <jms:activemq-connector name="Active_MQ" specification="1.1" brokerURL="${qotd_activemq_broker_url}" validateConnections="true" doc:name="Active MQ"/>
+    <flow name="qotd">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/qotd" allowedMethods="GET" doc:name="HTTP"/>
+        <flow-ref name="qotd:\call-qotd-web-service" doc:name="qotd:\call-qotd-web-service"/>
+        <set-payload value="#[flowVars.originalQuote + ' ' + flowVars.author + ' ' + server.dateTime.format('MMddyyyy')]" doc:name="Set Formatted Quote Payload" doc:description="This contains the bla bla"/>
+        <flow-ref name="qotd:\write-to-file" doc:name="qotd:\write-to-file"/>
+        <flow-ref name="qotd:\translate-quote" doc:name="qotd:\translate-quote"/>
+        <flow-ref name="qotd:\setup-qotd-jms-message" doc:name="qotd:\setup-qotd-jms-message"/>
+        <flow-ref name="qotd:\publish-qotd-jms-message" doc:name="qotd:\publish-qotd-jms-message"/>
+        <exception-strategy ref="Global_Choice_Exception_Strategy" doc:name="Global Choice Exception Strategy"/>
+    </flow>
+    <sub-flow name="qotd:\translate-quote">
+        <flow-ref name="qotd:\get-languages-input" doc:name="qotd:\get-languages-input"/>
+        <set-variable variableName="translatedLanguages" value="#[new java.util.ArrayList()]" doc:name="Initialize Translated Languages List"/>
+        <foreach doc:name="Loop Through Languages Input">
+            <flow-ref name="qotd:\call-translator-web-service" doc:name="qotd:\call-translator-web-service"/>
+            <flow-ref name="qotd:\compress-translator-response" doc:name="qotd:\compress-translator-response"/>
+            <expression-component doc:name="Add Response To Translated Languages List"><![CDATA[#[flowVars['translatedLanguages'].add(payload)]]]></expression-component>
+        </foreach>
+    </sub-flow>
+    <sub-flow name="qotd:\compress-translator-response">
+        <dw:transform-message doc:name="Compress Translator Response" metadata:id="70f54f6f-30b7-435e-9e03-f684461504df">
+            <dw:input-payload />
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	compressedQuote: payload.text[0] replace " " with "",
+	indexes: payload.text[0] find /\s/
+}]]></dw:set-payload>
+            <dw:set-variable variableName="translatedIndexes"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.text[0] find /\s/]]></dw:set-variable>
+        </dw:transform-message>
+    </sub-flow>
+    <sub-flow name="qotd:\setup-qotd-jms-message">
+        <set-payload value="#[flowVars.translatedLanguages]" mimeType="application/json" doc:name="Set Payload To Translated Languages"/>
+        <json:object-to-json-transformer doc:name="Convert Payload To JSON"/>
+    </sub-flow>
+    <sub-flow name="qotd:\get-languages-input">
+        <parse-template location="src/main/resources/languages.json" doc:name="Get Languages Input From File"/>
+        <logger message="#['Languages file contents: ' + payload]" level="INFO" doc:name="Log Languages File Content"/>
+        <dw:transform-message doc:name="Convert Payload To Java Object" metadata:id="a1a32507-fe34-4c95-8958-f1da6e60f022">
+            <dw:input-payload doc:sample="languages.json" mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+    </sub-flow>
+</mule>

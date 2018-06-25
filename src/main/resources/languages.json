@@ -1,0 +1,26 @@
+[
+   {
+      "name":"French",
+      "code":"en-fr"
+   },
+   {
+      "name":"Spanish",
+      "code":"es-de"
+   },
+   {
+      "name":"Russian",
+      "code":"ru"
+   },
+   {
+      "name":"Tagalog",
+      "code":"tl"
+   },
+   {
+      "name":"Polish",
+      "code":"pl"
+   },
+   {
+      "name":"Swedish",
+      "code":"sv"
+   }
+]

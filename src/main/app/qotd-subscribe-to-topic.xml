@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+    <flow name="qotd:\subscribe-to-topic">
+        <jms:inbound-endpoint topic="${qotd_topic}" connector-ref="Active_MQ" doc:name="JMS - QOTD"/>
+        <logger message="#['Subscribe to Topic - Payload is: ' + payload]" level="INFO" doc:name="Log Payload"/>
+        <dw:transform-message doc:name="Convert JMS Message To Java" metadata:id="923c6754-ce86-45c9-8d1e-9c4a2d3ef282">
+            <dw:input-payload mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="compressedQuotesJms"><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-variable>
+        </dw:transform-message>
+        <flow-ref name="qotd:\format-compressed-quotes" doc:name="qotd:\format-compressed-quotes"/>
+        <flow-ref name="qotd:\write-to-file" doc:name="qotd:\write-to-file"/>
+        <set-payload value="#[flowVars.compressedQuotesJms]" doc:name="Set Translated Languages List To Payload"/>
+        <flow-ref name="qotd:\decompress-quotes" doc:name="qotd:\decompress-quotes"/>
+        <logger message="#['Decompressed quotes: ' + flowVars.decompressedQuotes]" level="INFO" doc:name="Log Decompressed Quotes"/>
+        <exception-strategy ref="Global_Choice_Exception_Strategy" doc:name="Global Choice Exception Strategy"/>
+    </flow>
+    <sub-flow name="qotd:\format-compressed-quotes">
+        <set-variable variableName="compressedQuotes" value="#['\n']" doc:name="Initialize Compressed Quotes String"/>
+        <foreach doc:name="Loop Through Translated Languages">
+            <expression-component doc:name="Format Quote And Concatenate To Compressed Quotes"><![CDATA[#[flowVars.compressedQuotes = flowVars.compressedQuotes + payload.compressedQuote + ' ' + server.dateTime.format('EEE MMM dd HH:mm:ss zzz yyyy') + '\n']]]></expression-component>
+        </foreach>
+        <set-payload value="#[flowVars.compressedQuotes]" doc:name="Set Payload To Compressed Quotes"/>
+    </sub-flow>
+    <sub-flow name="qotd:\decompress-quotes">
+        <set-variable variableName="decompressedQuotes" value="#[new java.util.ArrayList()]" doc:name="Initialize Decompressed Quotes List"/>
+        <foreach doc:name="Loop Through Translated Languages">
+            <set-variable variableName="currentQuote" value="#[payload.compressedQuote]" doc:name="Set Current Quote"/>
+            <set-payload value="#[payload.indexes]" doc:name="Set Indexes List To Payload"/>
+            <foreach doc:name="Loop Through Indexes">
+                <set-payload value="#[flowVars.currentQuote.toString().substring(0,message.payloadAs(java.lang.Integer)) + ' ' +  flowVars.currentQuote.toString().substring(message.payloadAs(java.lang.Integer))]" doc:name="Insert Whitespace To Index"/>
+                <expression-component doc:name="Set Current Quote With Decompressed Quote"><![CDATA[flowVars.currentQuote = payload]]></expression-component>
+            </foreach>
+            <expression-component doc:name="Add Decompressed Quote To List"><![CDATA[#[flowVars['decompressedQuotes'].add(flowVars.currentQuote + '\n')]]]></expression-component>
+        </foreach>
+        <set-payload value="#[flowVars.decompressedQuotes.toString()]" doc:name="Set Decompressed Quotes To Payload"/>
+    </sub-flow>
+</mule>

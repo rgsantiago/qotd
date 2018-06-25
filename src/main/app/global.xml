@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+    <http:request-config name="QOTD_HTTP_Request_Configuration" host="${qotd_api_hostname}" port="${qotd_api_port}" doc:name="HTTP Request Configuration"/>
+    <http:request-config name="Translate_HTTP_Request_Configuration" protocol="HTTPS" host="${translator_api_hostname}" port="${translator_api_port}" doc:name="HTTP Request Configuration"/>
+    <choice-exception-strategy name="Global_Choice_Exception_Strategy">
+        <catch-exception-strategy when="#[exception.causeMatches('org.mule.module.http.internal.request.ResponseValidatorException')]" doc:name="Unexpected WS Response Exception">
+            <set-payload value="#['Unexpected Web Service Response in ' + org.mule.util.StringUtils.substringAfter(exception.info.Element, '@') + '\n' + exception]" doc:name="Set Exception Message"/>
+            <set-property propertyName="http.status" value="500" doc:name="Set HTTP Status To 500"/>
+        </catch-exception-strategy>
+        <catch-exception-strategy when="#[exception.causeMatches('org.mule.api.transport.DispatchException')]" doc:name="File Access Exception">
+            <set-payload value="#['File Access Error in ' + org.mule.util.StringUtils.substringAfter(exception.info.Element, '@') + '\n' + exception]" doc:name="Set Exception Message"/>
+            <set-property propertyName="http.status" value="500" doc:name="Set HTTP Status To 500"/>
+        </catch-exception-strategy>
+        <catch-exception-strategy when="#[exception.causeMatches('com.mulesoft.weave.mule.exception.WeaveExecutionException')]" doc:name="Transformation Exception">
+            <set-payload value="#['Transformation Error in ' + org.mule.util.StringUtils.substringAfter(exception.info.Element, '@') + '\n' + exception]" doc:name="Set Exception Message"/>
+            <set-property propertyName="http.status" value="500" doc:name="Set HTTP Status To 500"/>
+        </catch-exception-strategy>
+        <catch-exception-strategy doc:name="Default Exception">
+            <set-payload value="#['Generic Exception in ' + org.mule.util.StringUtils.substringAfter(exception.info.Element, '@') + '\n' + exception]" doc:name="Set Exception Message"/>
+            <set-property propertyName="http.status" value="500" doc:name="Set HTTP Status To 500"/>
+        </catch-exception-strategy>
+    </choice-exception-strategy>
+</mule>

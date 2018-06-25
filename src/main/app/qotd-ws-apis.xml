@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+    <sub-flow name="qotd:\call-qotd-web-service">
+        <set-payload value="{     &quot;success&quot;: {         &quot;total&quot;: 1     },     &quot;contents&quot;: {         &quot;quotes&quot;: [             {                 &quot;quote&quot;: &quot;Your time is limited, so don't waste it living someone else's life. Don't be trapped by dogma - which is living with the results of other people's thinking. Don't let the noise of other's opinions drown out your own inner voice. And most important, have the courage to follow your heart and intuition. They somehow already know what you truly want to become. Everything else is secondary.&quot;,                 &quot;length&quot;: &quot;388&quot;,                 &quot;author&quot;: &quot;Steve Jobs&quot;,                 &quot;tags&quot;: [                     &quot;inspire&quot;,                     &quot;life&quot;,                     &quot;time&quot;,                     &quot;truth&quot;,                     &quot;tso-top-100&quot;                 ],                 &quot;category&quot;: &quot;inspire&quot;,                 &quot;date&quot;: &quot;2018-06-13&quot;,                 &quot;permalink&quot;: &quot;https://theysaidso.com/quote/RmGoiti7Oqz4LFSHrM_dIAeF/steve-jobs-your-time-is-limited-so-dont-waste-it-living-someone-elses-life-dont&quot;,                 &quot;title&quot;: &quot;Inspiring Quote of the day&quot;,                 &quot;background&quot;: &quot;https://theysaidso.com/img/bgs/man_on_the_mountain.jpg&quot;,                 &quot;id&quot;: &quot;RmGoiti7Oqz4LFSHrM_dIAeF&quot;             }         ],         &quot;copyright&quot;: &quot;2017-19 theysaidso.com&quot;     } }" encoding="UTF-8" mimeType="application/java" doc:name="Set Sample Response"/>
+        <dw:transform-message doc:name="Convert Response To Java Object" metadata:id="ad955acf-5e40-4edf-836f-7869bfc9f632">
+            <dw:input-payload doc:sample="qod.json" mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="originalQuote"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.contents.quotes[0].quote]]></dw:set-variable>
+            <dw:set-variable variableName="author"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.contents.quotes[0].author]]></dw:set-variable>
+        </dw:transform-message>
+        <logger message="#['QOTD web service response: ' + payload]" level="INFO" doc:name="Log QOTD WS Response"/>
+    </sub-flow>
+    <sub-flow name="qotd:\call-translator-web-service">
+        <http:request config-ref="Translate_HTTP_Request_Configuration" path="${translator_api_base_path}" method="GET" doc:name="Translator Web Service">
+            <http:request-builder>
+                <http:query-param paramName="key" value="${translator_key}"/>
+                <http:query-param paramName="text" value="#[flowVars.originalQuote]"/>
+                <http:query-param paramName="lang" value="#[payload.code]"/>
+            </http:request-builder>
+        </http:request>
+        <dw:transform-message doc:name="Convert Response To Java Object" metadata:id="89330922-3de8-43cd-8a18-f4a9162b0020">
+            <dw:input-payload mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <logger message="#['Translator response: ' + payload]" level="INFO" doc:name="Log Translator WS Response"/>
+    </sub-flow>
+</mule>
