@@ -8,7 +8,8 @@ http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee
     <munit:config name="munit" doc:name="MUnit configuration"/>
     <spring:beans>
         <spring:import resource="classpath:qotd.xml"/>
-        <spring:import resource="classpath:qotd-ws-apis.xml"/>
+        <spring:import resource="classpath:qotd-ws.xml"/>
+        <spring:import resource="classpath:qotd-translator-ws.xml"/>
         <spring:import resource="classpath:qotd-file-access.xml"/>
         <spring:import resource="classpath:qotd-jms.xml"/>
         <spring:import resource="classpath:qotd-subscribe-to-topic.xml"/>
@@ -84,6 +85,12 @@ payload]]></dw:set-payload>
         </dw:transform-message>
         <set-variable variableName="originalQuote" value="Your time is limited, so don't waste it living someone else's life. Don't be trapped by dogma - which is living with the results of other people's thinking. Don't let the noise of other's opinions drown out your own inner voice. And most important, have the courage to follow your heart and intuition. They somehow already know what you truly want to become. Everything else is secondary." doc:name="Set Original Quote Variable"/>
         <flow-ref name="qotd:\call-translator-web-service" doc:name="Flow-ref to qotd:\call-translator-web-service"/>
+        <dw:transform-message doc:name="Convert Response To Java Object">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
         <munit:assert-true condition="#[payload.text[0].substring(0, 5) == &quot;Votre&quot;]" doc:name="Assert True"/>
     </munit:test>
     <munit:test name="new-test-suite-qotd:\get-languages-inputTest" description="Test" >
