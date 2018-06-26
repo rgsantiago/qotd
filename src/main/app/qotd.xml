@@ -17,6 +17,21 @@ http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/
     <flow name="qotd">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/qotd" allowedMethods="GET" doc:name="HTTP"/>
         <flow-ref name="qotd:\call-qotd-web-service" doc:name="qotd:\call-qotd-web-service"/>
+        <dw:transform-message doc:name="Convert Response To Java Object" metadata:id="ad955acf-5e40-4edf-836f-7869bfc9f632">
+            <dw:input-payload doc:sample="qod.json" mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload]]></dw:set-payload>
+            <dw:set-variable variableName="originalQuote"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.contents.quotes[0].quote]]></dw:set-variable>
+            <dw:set-variable variableName="author"><![CDATA[%dw 1.0
+%output application/java
+---
+payload.contents.quotes[0].author]]></dw:set-variable>
+        </dw:transform-message>
         <set-payload value="#[flowVars.originalQuote + ' ' + flowVars.author + ' ' + server.dateTime.format('MMddyyyy')]" doc:name="Set Formatted Quote Payload" doc:description="This contains the bla bla"/>
         <flow-ref name="qotd:\write-to-file" doc:name="qotd:\write-to-file"/>
         <flow-ref name="qotd:\translate-quote" doc:name="qotd:\translate-quote"/>
@@ -29,6 +44,13 @@ http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/
         <set-variable variableName="translatedLanguages" value="#[new java.util.ArrayList()]" doc:name="Initialize Translated Languages List"/>
         <foreach doc:name="Loop Through Languages Input">
             <flow-ref name="qotd:\call-translator-web-service" doc:name="qotd:\call-translator-web-service"/>
+            <dw:transform-message doc:name="Convert Response To Java Object">
+                <dw:input-payload mimeType="application/json"/>
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+            </dw:transform-message>
             <flow-ref name="qotd:\compress-translator-response" doc:name="qotd:\compress-translator-response"/>
             <expression-component doc:name="Add Response To Translated Languages List"><![CDATA[#[flowVars['translatedLanguages'].add(payload)]]]></expression-component>
         </foreach>

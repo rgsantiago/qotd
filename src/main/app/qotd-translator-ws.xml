@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+    <sub-flow name="qotd:\call-translator-web-service">
+        <http:request config-ref="Translate_HTTP_Request_Configuration" path="${translator_api_base_path}" method="GET" doc:name="Translator Web Service">
+            <http:request-builder>
+                <http:query-param paramName="key" value="${translator_key}"/>
+                <http:query-param paramName="text" value="#[flowVars.originalQuote]"/>
+                <http:query-param paramName="lang" value="#[payload.code]"/>
+            </http:request-builder>
+        </http:request>
+        <logger message="#['Translator response: ' + payload]" level="INFO" doc:name="Log Translator WS Response"/>
+    </sub-flow>
+</mule>
